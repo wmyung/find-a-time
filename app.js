@@ -203,12 +203,17 @@
       for (let d = 1; d <= n; d++) {
         const ds = y + '-' + pad(mo) + '-' + pad(d), wd = (first.getUTCDay() + d - 1) % 7, past = ds < today.date;
         g.append(h('div', { class: 'day' + (st.dates.has(ds) ? ' on' : '') + (past ? ' past' : '') + (ds === today.date ? ' today' : '') + (wd === 0 ? ' sun' : wd === 6 ? ' sat' : ''),
-          'data-d': past ? null : ds, role: 'button', 'aria-pressed': st.dates.has(ds) ? 'true' : 'false', 'aria-label': L(mo + '월 ' + d + '일 ' + WD[wd] + '요일', WDF[wd] + ', ' + MONF[mo - 1] + ' ' + d) + (ds === today.date ? L(', 오늘', ', today') : '') + (past ? L(', 지난 날짜', ', past date') : ''), 'aria-disabled': past ? 'true' : null }, h('span', null, String(d))));
+          'data-d': past ? null : ds, role: 'button', tabindex: past ? null : 0, 'aria-pressed': st.dates.has(ds) ? 'true' : 'false', 'aria-label': L(mo + '월 ' + d + '일 ' + WD[wd] + '요일', WDF[wd] + ', ' + MONF[mo - 1] + ' ' + d) + (ds === today.date ? L(', 오늘', ', today') : '') + (past ? L(', 지난 날짜', ', past date') : ''), 'aria-disabled': past ? 'true' : null }, h('span', null, String(d))));
       }
       g.addEventListener('pointerdown', e => {
         const c = e.target.closest('[data-d]'); if (!c) return;
         e.preventDefault(); try { g.setPointerCapture(e.pointerId); } catch (x) { /* 무시 */ }
         drag = { on: !st.dates.has(c.dataset.d), from: c.dataset.d, snap: new Set(st.dates) }; apply(c.dataset.d);
+      });
+      g.addEventListener('keydown', e => {   // 키보드: Enter·Space 로 고르기/빼기
+        const c = e.target.closest && e.target.closest('[data-d]'); if (!c || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault(); if (drag) return;   // 끄는 중에는 무시(스크롤도 막음)
+        drag = { on: !st.dates.has(c.dataset.d), from: c.dataset.d, snap: new Set(st.dates) }; apply(c.dataset.d); drag = null;
       });
       g.addEventListener('pointermove', e => {
         if (!drag) return;
@@ -424,7 +429,7 @@
         steps([
           L([h('b', null, '내 시간'), '에 이름을 적고 ‘시작’을 눌러요. 비밀번호는 없어요.'], ['Add your name under ', h('b', null, 'Your times'), ' and select “Start”. There’s no password.']),
           [L('되는 시간을 누르거나 쭉 끌어서 초록색으로 칠해요. 한 번 더 누르면 지워지고, 칠하는 대로 저장돼요.', 'Tap or drag across the times that work to paint them green. Tap again to clear. Changes save as you go.')],
-          L([h('b', null, '모두의 시간'), '은 색이 진할수록 되는 사람이 많은 시간이에요. 칸을 누르면 누가 되는지 보여요.'], [h('b', null, 'Everyone’s times'), ' shows overlap: the darker the color, the more people are free. Tap a slot to see who.']),
+          L([h('b', null, '모두의 시간'), '은 초록색이 강할수록 되는 사람이 많은 시간이에요. 칸을 누르면 누가 되는지 보여요.'], [h('b', null, 'Everyone’s times'), ' shows overlap: the stronger the green, the more people are free. Tap a slot to see who.']),
           L(['나중에 고치려면 이 링크에서 ', h('b', null, '같은 이름'), '을 적으면 돼요. 다른 기기에서도 마찬가지예요.'], ['To make changes later, open this link and enter ', h('b', null, 'the same name'), '. It works on any device.']),
           L(['해외에 있다면 ', h('b', null, '시간대'), '를 바꿔 보세요. 표가 그 나라 시간으로 바뀌어요. ', h('a', { href: '/guide' }, '자세한 사용법')], ['Abroad? Change the ', h('b', null, 'time zone'), ' and the table switches to local time. ', h('a', { href: '/guide' }, 'Full guide')]),
         ])),
@@ -449,12 +454,12 @@
     const ev = S.ev, box = S.tzBox; box.textContent = '';
     box.append(h('div', { class: 'row' }, h('label', { for: 'f-vtz', class: 'lab' }, L('표 시간대', 'Table time zone')), tzSelect('f-vtz', S.tz, setViewTz)));
     if (S.tz === ev.tz) {
-      box.append(h('p', { class: 'note' }, L('모임을 만든 곳 시간이에요.', 'This is the event’s time zone.') + (myTz !== ev.tz ? ' ' : ''),
+      box.append(h('div', { class: 'tznote' }, h('p', { class: 'note' }, L('모임을 만든 곳 시간이에요.', 'This is the event’s time zone.')),
         myTz !== ev.tz ? h('button', { type: 'button', class: 'linkbtn', onclick: () => setViewTz(myTz) }, L(tzName(myTz) + ' 시간으로 보기', 'View in ' + tzName(myTz) + ' time')) : null));
       return;
     }
     const t0 = ev.slots[0] * 60000, d0 = offsetMin(S.tz, t0) - offsetMin(ev.tz, t0);
-    box.append(h('p', { class: 'note' }, L('모임을 만든 곳 ' + tzName(ev.tz) + '보다 ' + diffText(d0) + '. ', 'This view is ' + diffText(d0, tzName(ev.tz)) + ', where the event was created. '),
+    box.append(h('div', { class: 'tznote' }, h('p', { class: 'note' }, L('모임을 만든 곳 ' + tzName(ev.tz) + '보다 ' + diffText(d0) + '.', 'This view is ' + diffText(d0, tzName(ev.tz)) + ', where the event was created.')),
       h('button', { type: 'button', class: 'linkbtn', onclick: () => setViewTz(ev.tz) }, L('만든 곳 시간으로 보기', 'View in event time zone'))));
     let prev = d0;   // 칸마다 시차를 따로 계산해서, 기간 중 서머타임이 바뀌면 알린다
     ev.slots.forEach(s => {
@@ -684,7 +689,7 @@
           h('label', { for: 'f-name' }, L('이름', 'Name')),
           h('div', { class: 'row' }, inp, h('button', { type: 'button', class: 'primary', onclick: () => join(inp.value) }, L('시작', 'Start'))),
           h('p', { class: 'note' }, L('전에 적었다면 같은 이름을 쓰세요. 칠해 둔 시간을 불러와 고칠 수 있어요. 비밀번호는 없어요.', 'If you’ve added your name before, use the same one to load and edit your times. There’s no password.')),
-          names.length ? h('p', { class: 'note' }, L('참여한 사람: ', 'People so far: '), names.map((n, i) => [i ? ', ' : '', h('button', { type: 'button', class: 'linkbtn', onclick: () => join(n) }, n)])) : null));
+          names.length ? h('div', { class: 'people' }, h('p', { class: 'note' }, L('참여한 사람 · 눌러서 이어서 하기', 'People so far · tap to continue as')), h('div', { class: 'chips' }, names.map(n => h('button', { type: 'button', class: 'person-chip', onclick: () => join(n) }, n)))) : null));
       if (focused || (!had && !('ontouchstart' in window))) setTimeout(() => inp.focus(), 0);
       return;
     }
@@ -701,7 +706,7 @@
         h('button', { type: 'button', onclick: () => { S.aiCheck = false; store.set('meet:aicheck:' + S.id + '|' + S.name, null); drawSignin(true); drawGrids(); } }, L('다 확인했어요', 'I’ve checked')))] : []),
       h('div', { class: 'mine-grid' }),
       ...(S.calInfoEl ? [S.calInfoEl] : []),
-      h('p', { class: 'note' }, h('span', { class: 'count' }, countText()), ' · ',
+      h('div', { class: 'minebar' }, h('span', { class: 'count note' }, countText()),
         h('button', { type: 'button', class: 'linkbtn', onclick: () => { flushSave(S); S.name = ''; S.mine = null; S.nameInp = null; S.ai = null; S.aiDraft = null; S.aiRun = false; S.aiCheck = false; S.aiOk = false; S.aiTok = (S.aiTok || 0) + 1; store.set('meet:name:' + S.id, null); drawSignin(); drawGrids(); } }, L('다른 이름으로 하기', 'Use a different name'))),
       drawCalBox());
     drawAiBox();
@@ -788,18 +793,21 @@
         const t = new Set(); LY.cell[c].forEach(i => { if (i >= 0 && cal.dayAt[i]) cal.dayAt[i].forEach(x => t.add(x)); });
         if (t.size) ad = h('span', { class: 'ad', title: [...t].join(', ') }, L('종일', 'All day'));
       }
-      g.append(h('div', { class: 'colh' + (p.wd === 0 ? ' sun' : p.wd === 6 ? ' sat' : '') }, ev.mode === 'days' ? WD[p.wd] : [L(p.mo + '/' + p.d, MON[p.mo - 1] + ' ' + p.d), h('br'), WD[p.wd]], ad));
+      g.append(h('div', { class: 'colh' + (p.wd === 0 ? ' sun' : p.wd === 6 ? ' sat' : '') }, ev.mode === 'days' ? h('b', null, WD[p.wd]) : [h('b', null, L(p.mo + '/' + p.d, MON[p.mo - 1] + ' ' + p.d)), h('span', null, WD[p.wd])], ad));
     }
-    const cells = [];
+    const cells = [], R = LY.rows.length;
+    const gapAt = r => r > 0 && LY.rows[r] % 1 === 0 && LY.rows[r] - LY.rows[r - 1] > ev.step;   // 시간이 끊기는 줄(구간 시작)
     LY.rows.forEach((m, r) => {
-      const fold = m % 1 !== 0, mm = LY.rmin.get(m), gap = r > 0 && !fold && m - LY.rows[r - 1] > ev.step;
+      const fold = m % 1 !== 0, mm = LY.rmin.get(m), gap = gapAt(r);
+      const segFirst = r === 0 || gap, segLast = r === R - 1 || gapAt(r + 1);
       const prevFold = r > 0 && LY.rows[r - 1] % 1 !== 0;
       const lab = fold ? (prevFold ? '' : L('다시 ', 'Again ') + fmtHour(mm)) : (mm % 60 === 0 || r === 0 || gap) ? fmtHour(mm) : '';   // 한 번 더 오는 시각은 첫 줄에 '다시 오전 1시'
-      g.append(h('div', { class: 'rowh' + (gap ? ' gap' : '') + (fold ? ' fold' : ''), title: fold ? L('서머타임이 끝나 같은 시각이 한 번 더 옵니다', 'Daylight saving time ended, so this hour comes around twice') : null }, lab));
+      g.append(h('div', { class: 'rowh' + (gap ? ' gap' : '') + (fold ? ' fold' : ''), title: fold ? L('서머타임이 끝나 같은 시각이 한 번 더 옵니다', 'Daylight saving time ended, so this hour comes around twice') : null }, lab ? h('span', null, lab) : null));
       for (let c = c0; c < c1; c++) {
         const i = LY.cell[c][r];
         const bz = kind === 'mine' && i >= 0 && busyTitles(i, cal);
-        const el = h('div', { class: 'cell' + (i < 0 ? ' x' : '') + (gap ? ' gap' : '') + (!fold && mm % 60 === 0 ? ' hr' : '') + (bz ? ' busy' : ''), 'data-i': i >= 0 ? i : null, 'data-c': c - c0, 'data-r': r, title: bz ? L('내 일정: ', 'My events: ') + bz.join(', ') : null });
+        const el = h('div', { class: 'cell' + (i < 0 ? ' x' : '') + (gap ? ' gap' : '') + (!fold && mm % 60 === 0 ? ' hr' : '') + (bz ? ' busy' : '') +
+          (c === c0 ? ' fc' : '') + (c === c1 - 1 ? ' lc' : '') + (segFirst ? ' sf' : '') + (segLast ? ' sl' : ''), 'data-i': i >= 0 ? i : null, 'data-c': c - c0, 'data-r': r, title: bz ? L('내 일정: ', 'My events: ') + bz.join(', ') : null });
         g.append(el);
         (cells[c - c0] || (cells[c - c0] = []))[r] = el;
       }
@@ -857,12 +865,11 @@
     box.append(h('h2', null, L('모두의 시간 ', 'Everyone’s times '), h('small', null, L(n + '명', cnt(n, 'person', 'people')))));
     if (!n) { box.append(h('p', { class: 'note' }, L('아직 아무도 칠하지 않았어요. 링크를 보내 두면 사람들이 칠한 시간이 여기에 모여요.', 'No one has marked any times yet. Send the link, and the times people mark will collect here.'))); return; }
     box.append(h('div', { class: 'legend' }, L('0명', 'None'), [0, 1, 2, 3, 4, 5].map(k => h('i', { class: 'sw h' + k })), L(n + '명 모두', 'All ' + n)),
-      h('p', { class: 'note' }, L('색이 진할수록 되는 사람이 많아요. 칸을 누르면 누가 되는지 아래에 보여요.', 'The darker the color, the more people are free. Tap a slot to see who, below.')));
+      h('p', { class: 'note' }, L('초록색이 강할수록 되는 사람이 많아요. 가장 강한 칸은 모두 되는 시간이에요. 칸을 누르면 누가 되는지 아래에 보여요.', 'The stronger the green, the more people are free. The strongest is everyone. Tap a slot to see who.')));
     const { pg, c0, c1 } = range(box), g = gridEl(c0, c1, 'group');
     g.querySelectorAll('.cell[data-i]').forEach(el => {
       const i = +el.dataset.i, y = yes[i].length;
-      el.classList.add('h' + (y ? Math.ceil(y / n * 5) : 0));
-      if (y === n) el.classList.add('all');
+      el.classList.add('h' + (y === n ? 5 : y ? Math.min(4, Math.ceil(y / n * 4)) : 0));   // 5단계는 모두 될 때만
       if (i === S.focus) el.classList.add('focus');
       el.title = L(n + '명 중 ' + y + '명 가능', y + ' of ' + n + ' free');
     });
@@ -872,12 +879,14 @@
       g.querySelectorAll('.focus').forEach(x => x.classList.remove('focus'));
       const el = g.querySelector('.cell[data-i="' + i + '"]'); if (el) el.classList.add('focus');
       detail.textContent = '';
-      if (i < 0 || i >= ev.slots.length) { detail.append(h('p', { class: 'note' }, L('칸을 누르면 그 시간에 되는 사람이 여기에 보여요.', 'Tap a slot to see who’s free then.'))); return; }
+      if (i < 0 || i >= ev.slots.length) { detail.classList.add('empty'); detail.append(h('p', { class: 'note' }, L('표의 칸을 누르면 그 시간에 누가 되는지 여기에 보여요.', 'Tap a slot in the grid to see who’s free then.'))); return; }
+      detail.classList.remove('empty');
+      const list = (names, cls) => names.length ? h('ul', { class: cls }, names.map(x => h('li', null, x))) : h('p', { class: 'none' }, L('없어요', 'No one'));
       detail.append(...[h('p', { class: 'dt' }, slotText(ev, S.tz, i)),
         S.tz !== ev.tz ? h('p', { class: 'note' }, L('만든 곳 시간으로는 ', 'In the event’s time zone: ') + slotText(ev, ev.tz, i)) : null,
         h('div', { class: 'lists' },
-          h('div', null, h('b', null, L('돼요 ' + yes[i].length + '명', 'Free (' + yes[i].length + ')')), h('ul', null, yes[i].map(x => h('li', null, x)))),
-          h('div', null, h('b', null, L('안 돼요 ' + no[i].length + '명', 'Not free (' + no[i].length + ')')), h('ul', { class: 'no' }, no[i].map(x => h('li', null, x)))))].filter(Boolean));
+          h('div', null, h('b', null, h('i', { class: 'dot yes' }), L('돼요 ' + yes[i].length + '명', 'Free · ' + yes[i].length)), list(yes[i], 'yes')),
+          h('div', null, h('b', null, h('i', { class: 'dot no' }), L('안 돼요 ' + no[i].length + '명', 'Not free · ' + no[i].length)), list(no[i], 'no')))].filter(Boolean));
     };
     g.addEventListener('pointerover', e => { if (e.pointerType === 'mouse') { const t = e.target.closest('.cell[data-i]'); if (t) show(+t.dataset.i); } });
     g.addEventListener('click', e => { const t = e.target.closest('.cell[data-i]'); if (t) show(+t.dataset.i); });
@@ -934,12 +943,12 @@
       sec(L('결과 보기', 'Seeing the results'),
         steps(L([
           [h('b', null, '모두의 시간'), '에는 사람들이 칠한 시간이 겹쳐 보여요.'],
-          ['색이 진할수록 되는 사람이 많아요. 모두가 되는 칸은 테두리가 진해요.'],
+          ['초록색이 강할수록 되는 사람이 많아요. 가장 강한 색은 모두가 되는 시간이에요.'],
           ['칸을 누르거나 마우스를 올리면, 그 시간에 ', h('b', null, '되는 사람과 안 되는 사람'), '이 표 아래에 나와요.'],
           ['날짜가 많으면 표 위의 ‘뒤 날짜 ›’로 넘겨 보세요.'],
         ], [
           [h('b', null, 'Everyone’s times'), ' shows what people painted, layered together.'],
-          ['The darker the color, the more people are free. Slots where everyone is free get a bold outline.'],
+          ['The stronger the green, the more people are free. The strongest green means everyone is free.'],
           ['Tap a slot, or hover over it, to see ', h('b', null, 'who’s free and who isn’t'), ' below the table.'],
           ['With many dates, use “Later ›” above the table to move on.'],
         ]))),
