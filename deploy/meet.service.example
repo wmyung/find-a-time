@@ -1,0 +1,34 @@
+# systemd 예시 — /etc/systemd/system/meet.service 로 복사해 경로·포트를 맞춰 쓰세요.
+# 앞에 HTTPS 프록시(Cloudflare Tunnel, Caddy, nginx 등)를 두고 이 서버는 127.0.0.1 에만 엽니다.
+[Unit]
+Description=Find a time (meet) scheduling server
+After=network.target
+
+[Service]
+Environment=MEET_PORT=8094 MEET_HOST=127.0.0.1 MEET_DATA=/var/lib/meet
+# Cloudflare 뒤에서만 1 (CF-Connecting-IP·CF-IPCountry 를 믿음)
+Environment=MEET_TRUST_PROXY=0
+# AI 기능을 쓸 때만: MEET_AI_URL, MEET_AI_KEY, MEET_AI_KEY_HEADER, MEET_AI_MODEL, MEET_AI_EFFORT, MEET_AI_DAILY, MEET_AI_PER_IP
+EnvironmentFile=-/etc/meet.env
+ExecStart=/usr/bin/python3 /opt/meet/server.py
+User=meet
+Group=meet
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/meet
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
