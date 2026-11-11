@@ -412,8 +412,7 @@
     const ev = S.ev, url = location.origin + '/m/' + S.id;
     const linkIn = h('input', { id: 'f-link', class: 'link', readonly: true, value: url, onfocus: e => e.target.select() });
     const copy = h('button', { type: 'button', class: 'primary', onclick: async () => {
-      const text = '[' + ev.title + '] ' + L('되는 시간을 칠해 주세요. 가입 없이 이름만 적으면 돼요.', 'Please mark the times that work for you. No sign-up needed, just add your name.') + '\n' + url;
-      try { await navigator.clipboard.writeText(text); toast(L('복사했어요. 단톡방에 붙여 넣어 주세요', 'Copied. Paste it into your group chat')); }
+      try { await navigator.clipboard.writeText(url); toast(L('링크를 복사했어요', 'Link copied')); }
       catch (e) { linkIn.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (x) { /* 무시 */ } toast(ok ? L('링크를 복사했어요', 'Link copied') : L('복사가 안 돼요. 링크를 길게 눌러 직접 복사해 주세요', 'Couldn’t copy. Press and hold the link to copy it yourself'), !ok); }
     } }, L('링크 복사', 'Copy link'));
 
