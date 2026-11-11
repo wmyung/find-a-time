@@ -294,7 +294,7 @@
       const tok = navTok;
       try {
         const r = await api('POST', '/api/events', { title: t, mode: st.mode, tz: st.tz, step: st.step, slots, labels, range: [st.start, st.end] });
-        store.set('meet:new:' + r.id, '1');
+        store.set('meet:new:' + r.id, '1'); store.set('meet:own:' + r.id, '1');
         if (tok !== navTok) { toast(L('모임을 만들었어요: ', 'Event created: ') + location.origin + '/m/' + r.id); return; }
         history.pushState(null, '', '/m/' + r.id);
         route();
@@ -352,7 +352,7 @@
     const savedTz = store.get('meet:tz:' + id);
     S = { id, ev, name: store.get('meet:name:' + id) || '', mine: null, tz: savedTz && validTz(savedTz) ? savedTz : myTz,
       page: 0, focus: -1, dirty: false, inflight: 0, failed: false, chain: Promise.resolve(), saveT: 0, painting: false, lastSaved: 0,
-      isNew: store.get('meet:new:' + id) === '1' };
+      isNew: store.get('meet:new:' + id) === '1', owner: store.get('meet:own:' + id) === '1' };
     if (S.name) loadMine();
     document.title = ev.title + ' · ' + BRAND;
     renderEvent();
@@ -433,7 +433,8 @@
           L(['해외에 있다면 ', h('b', null, '시간대'), '를 바꿔 보세요. 표가 그 나라 시간으로 바뀌어요. ', h('a', { href: '/guide' }, '자세한 사용법')], ['Abroad? Change the ', h('b', null, 'time zone'), ' and the table switches to local time. ', h('a', { href: '/guide' }, 'Full guide')]),
         ])),
       S.tzBox,
-      h('div', { class: 'two grids' }, S.signin, S.group)));
+      h('div', { class: 'two grids' }, S.signin, S.group),
+      S.owner ? buildFinal() : null));
     S.isNew = false; store.set('meet:new:' + S.id, null);
     drawTz(); drawSignin(); drawGrids();
   }
@@ -448,7 +449,7 @@
     const a = Math.abs(d);
     return Math.floor(a / 60) + '시간' + (a % 60 ? ' ' + (a % 60) + '분' : '') + ' ' + (d < 0 ? '느려요' : '빨라요');
   }
-  function setViewTz(z) { S.tz = z; store.set('meet:tz:' + S.id, z); S.page = 0; drawTz(); if (CAL && S.name) drawSignin(true); drawGrids(); }
+  function setViewTz(z) { S.tz = z; store.set('meet:tz:' + S.id, z); S.page = 0; drawTz(); if (CAL && S.name) drawSignin(true); if (S.finBox && S.ev.mode !== 'days') { const o = S.finBox, g = S.fin.guests.value; S.finInit = false; S.finKey = ''; S.finExact = null; o.replaceWith(buildFinal()); S.fin.guests.value = g; } drawGrids(); }
   function drawTz() {
     const ev = S.ev, box = S.tzBox; box.textContent = '';
     box.append(h('div', { class: 'row' }, h('label', { for: 'f-vtz', class: 'lab' }, L('표 시간대', 'Table time zone')), tzSelect('f-vtz', S.tz, setViewTz)));
@@ -862,7 +863,7 @@
     ps.forEach(p => p.a.forEach((v, i) => (v === 1 ? yes : no)[i].push(p.name)));
     box.textContent = '';
     box.append(h('h2', null, L('모두의 시간 ', 'Everyone’s times '), h('small', null, L(n + '명', cnt(n, 'person', 'people')))));
-    if (!n) { box.append(h('p', { class: 'note' }, L('아직 아무도 칠하지 않았어요. 링크를 보내 두면 사람들이 칠한 시간이 여기에 모여요.', 'No one has marked any times yet. Send the link, and the times people mark will collect here.'))); return; }
+    if (!n) { box.append(h('p', { class: 'note' }, L('아직 아무도 칠하지 않았어요. 링크를 보내 두면 사람들이 칠한 시간이 여기에 모여요.', 'No one has marked any times yet. Send the link, and the times people mark will collect here.'))); drawFinal(yes, n); return; }
     box.append(h('div', { class: 'legend' }, L('0명', 'None'), [0, 1, 2, 3, 4, 5].map(k => h('i', { class: 'sw h' + k })), L(n + '명 모두', 'All ' + n)),
       h('p', { class: 'note' }, L('초록색이 강할수록 되는 사람이 많아요. 가장 강한 칸은 모두 되는 시간이에요. 칸을 누르면 누가 되는지 아래에 보여요.', 'The stronger the green, the more people are free. The strongest is everyone. Tap a slot to see who.')));
     const { pg, c0, c1 } = range(box), g = gridEl(c0, c1, 'group');
@@ -892,6 +893,121 @@
     if (pg) box.append(pg);
     box.append(h('div', { class: 'gscroll' }, g), detail);
     show(S.focus);
+    drawFinal(yes, n);
+  }
+
+  // ---------- 시간 정하고 구글 초대 보내기 ----------
+  // 모임을 만든 브라우저에서만 보임. 정한 시간·이메일은 서버에 보내지 않고 구글 캘린더 '일정 만들기' 화면으로만 넘김.
+  function addDays(ds, k) { const [y, m, d] = ds.split('-').map(Number), t = new Date(Date.UTC(y, m - 1, d + k)); return t.getUTCFullYear() + '-' + pad(t.getUTCMonth() + 1) + '-' + pad(t.getUTCDate()); }
+  const hhmm = m => pad(Math.floor(m / 60) % 24) + ':' + pad(m % 60);
+  const fromHhmm = s => { const x = /^(\d{1,2}):(\d{2})/.exec(s || ''); return x && +x[1] < 24 && +x[2] < 60 ? +x[1] * 60 + +x[2] : null; };
+  const EMAIL_RE = /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/;
+  function bestBlocks(yes) {   // 이어진 칸 중 되는 사람이 같은 구간 → 많이 되는 순, 긴 순, 이른 순
+    const ev = S.ev, runs = [];
+    for (let i = 0; i < ev.slots.length; i++) {
+      if (!yes[i].length) continue;
+      const key = yes[i].slice().sort().join('\n'), r = runs[runs.length - 1];
+      if (r && r.b === i - 1 && r.key === key && ev.slots[i] - ev.slots[i - 1] === ev.step) r.b = i;
+      else runs.push({ a: i, b: i, key, yes: yes[i].slice() });
+    }
+    return runs.sort((x, y) => y.yes.length - x.yes.length || (y.b - y.a) - (x.b - x.a) || x.a - y.a).slice(0, 4);
+  }
+  const finTz = () => S.ev.mode === 'days' ? S.ev.tz : S.tz;   // 매주 모임은 만든 곳 시간대로 반복
+  function finTimes() {   // 고른 날짜·시각 → UTC ms [시작, 끝] (오류면 문장)
+    const F = S.fin, ev = S.ev, a = fromHhmm(F.start.value), b = fromHhmm(F.end.value), TZ = finTz();
+    if (ev.mode !== 'days' && S.finExact) return S.finExact[1] - S.finExact[0] > 24 * 3600000 ? L('하루보다 긴 일정은 만들 수 없어요. 시각을 줄여 주세요', 'Events can’t be longer than a day. Shorten the time') : S.finExact.slice();   // 후보를 그대로 고른 경우: 칸의 시각 그대로(서머타임 두 번째 시각도 정확히)
+    if (a == null || b == null) return L('시작과 끝 시각을 적어 주세요', 'Enter a start and end time');
+    let ds;
+    if (ev.mode === 'days') {   // 오늘 뒤로 처음 오는 그 요일
+      const wd = +F.wd.value, now = Date.now(), today = partsAt(TZ, now).date;
+      for (let k = 0; k < 8 && !ds; k++) { const d = addDays(today, k); if (partsAt(TZ, localToUtc(TZ, d, 720)).wd === wd && localToUtc(TZ, d, a) > now) ds = d; }
+    } else {
+      ds = F.date.value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ds || '')) return L('날짜를 골라 주세요', 'Pick a date');
+    }
+    const t0 = localToUtc(TZ, ds, a), t1 = localToUtc(TZ, b > a ? ds : addDays(ds, 1), b);   // 끝이 시작보다 이르면 다음 날
+    if (partsAt(TZ, t0).min !== a || partsAt(TZ, t1).min !== b) return L('서머타임으로 건너뛰는 시각이에요. 다른 시각을 적어 주세요', 'That time is skipped by daylight saving. Pick another time');
+    if (!(t1 > t0)) return L('끝 시각을 확인해 주세요', 'Check the end time');
+    if (t1 - t0 > 24 * 3600000) return L('하루보다 긴 일정은 만들 수 없어요', 'Events can’t be longer than a day');
+    return [t0, t1];
+  }
+  function finEmails() {
+    const raw = S.fin.guests.value.split(/[\s,;]+/).filter(Boolean);
+    const bad = raw.filter(x => !EMAIL_RE.test(x));
+    return { list: [...new Set(raw.filter(x => EMAIL_RE.test(x)))], bad };
+  }
+  function finUpdate() {
+    const F = S.fin, ev = S.ev, t = finTimes(), em = finEmails();
+    let err = typeof t === 'string' ? t : '';
+    if (!err && em.bad.length) err = L('이메일 주소를 확인해 주세요: ', 'Check these email addresses: ') + em.bad.slice(0, 3).join(', ');
+    if (!err && em.list.length > 50) err = L('받는 사람은 50명까지예요', 'Up to 50 guests');
+    F.err.textContent = err; F.err.hidden = !err;
+    if (err) { F.go.removeAttribute('href'); F.go.setAttribute('aria-disabled', 'true'); F.when.textContent = ''; return; }
+    F.go.removeAttribute('aria-disabled');
+    const z = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const url = location.origin + '/m/' + S.id;
+    const q = [['action', 'TEMPLATE'], ['text', ev.title], ['dates', z(t[0]) + '/' + z(t[1])], ['ctz', finTz()],
+      ['details', L('시간정하기에서 함께 고른 시간이에요.', 'Time picked together on Find a time.') + '\n' + url]];
+    if (ev.mode === 'days' && F.weekly.checked) q.push(['recur', 'RRULE:FREQ=WEEKLY']);
+    if (em.list.length) q.push(['add', em.list.join(',')]);
+    F.go.href = 'https://calendar.google.com/calendar/render?' + q.map(([k, v]) => k + '=' + encodeURIComponent(v).replace(k === 'dates' ? /%2F/g : /^$/, '/')).join('&');
+    const a = partsAt(finTz(), t[0]), b = partsAt(finTz(), t[1]);
+    F.when.textContent = dateLabel({ mode: 'dates' }, a) + ' ' + fmtMin(a.min) + L(' ~ ', ' – ') + (b.date === a.date ? fmtMin(b.min) : dateLabel({ mode: 'dates' }, b) + ' ' + fmtMin(b.min)) +
+      (ev.mode === 'days' && F.weekly.checked ? L(' · 매주', ' · weekly') : '') + ' · ' + tzName(finTz());
+  }
+  function finPick(r) {   // 후보 구간을 고르면 날짜·시각 칸을 채움
+    const F = S.fin, ev = S.ev, t0 = ev.slots[r.a] * 60000, t1 = (ev.slots[r.b] + ev.step) * 60000, a = partsAt(finTz(), t0), b = partsAt(finTz(), t1);
+    S.finKey = r.a + ':' + r.b; S.finExact = [t0, t1];
+    if (ev.mode === 'days') F.wd.value = String(a.wd); else F.date.value = a.date;
+    F.start.value = hhmm(a.min); F.end.value = hhmm(b.min);
+    F.list.querySelectorAll('.cand').forEach(x => x.setAttribute('aria-pressed', x.dataset.k === S.finKey ? 'true' : 'false'));
+    finUpdate();
+  }
+  function buildFinal() {
+    const ev = S.ev, onin = () => { S.finKey = ''; S.finExact = null; S.fin.list.querySelectorAll('.cand').forEach(x => x.setAttribute('aria-pressed', 'false')); finUpdate(); };
+    const F = S.fin = {};
+    F.list = h('div', { class: 'cands' });
+    F.date = h('input', { type: 'date', id: 'f-fdate', oninput: onin });
+    F.wd = h('select', { id: 'f-fdate', onchange: onin }, [1, 2, 3, 4, 5, 6, 0].map(d => h('option', { value: String(d) }, L(WD[d] + '요일', WDF[d]))));
+    F.weekly = h('input', { type: 'checkbox', id: 'f-weekly', checked: true, onchange: finUpdate });
+    F.start = h('input', { type: 'time', id: 'f-fstart', step: 300, oninput: onin });
+    F.end = h('input', { type: 'time', id: 'f-fend', step: 300, oninput: onin });
+    F.guests = h('textarea', { id: 'f-guests', class: 'aitext guests', rows: 2, autocomplete: 'off', spellcheck: 'false', placeholder: 'mina@example.com, jun@example.com', oninput: finUpdate });
+    F.err = h('p', { class: 'note warn', role: 'alert', hidden: true });
+    F.when = h('p', { class: 'finwhen', 'aria-live': 'polite' });
+    F.go = h('a', { class: 'btn primary', target: '_blank', rel: 'noopener noreferrer', onclick: e => { finUpdate(); if (F.go.getAttribute('aria-disabled')) { e.preventDefault(); toast(F.err.textContent, true); } } }, L('구글 캘린더에서 초대 보내기', 'Send invite with Google Calendar'));
+    S.finBox = h('section', { class: 'final', 'aria-labelledby': 'fin-h' },
+      h('div', { class: 'finhead' }, h('h2', { id: 'fin-h' }, L('시간 정하고 초대 보내기', 'Pick a time & send invites')), h('span', { class: 'opt' }, L('만든 사람에게만 보여요', 'Only you see this'))),
+      h('p', { class: 'note' }, L('많이 되는 시간을 골라 두었어요. 고르거나 직접 고친 뒤, 내 구글 계정으로 초대를 보내세요.', 'Here are the times that work for the most people. Pick one or adjust it, then send invites from your Google account.')),
+      F.list,
+      h('div', { class: 'form finform' },
+        h('label', { for: 'f-fdate' }, ev.mode === 'days' ? L('요일', 'Day') : L('날짜', 'Date')), ev.mode === 'days' ? F.wd : F.date,
+        h('label', { for: 'f-fstart' }, L('시작', 'Start')), F.start,
+        h('label', { for: 'f-fend' }, L('끝', 'End')), F.end,
+        ev.mode === 'days' ? [h('span'), h('label', { class: 'aiok', for: 'f-weekly' }, F.weekly, L('매주 반복', 'Repeat weekly'))] : null),
+      h('p', { class: 'note small' }, L('시각은 ', 'Times are in ') + tzName(finTz()) + ' (' + gmt(finTz()) + (ev.mode === 'days' ? L(') 기준이에요. 매주 모임은 만든 곳 시간대로 반복돼요.', '). Weekly events repeat in the event’s time zone.') : L(') 기준이에요. 위에서 시간대를 바꾸면 따라 바뀌어요.', '). Change the time zone above to switch.'))),
+      h('label', { class: 'finlab', for: 'f-guests' }, L('받는 사람 이메일 ', 'Guest emails '), h('span', { class: 'opt' }, L('선택', 'optional'))),
+      F.guests,
+      F.err, F.when, F.go,
+      h('p', { class: 'note small' }, L('구글 캘린더가 열리면 내용을 확인하고 ‘저장’을 누르세요. 초대 메일을 보낼지 물으면 ‘보내기’를 고르면 돼요. 받는 사람은 구글 화면에서 더 넣을 수도 있어요. 적은 이메일은 이 사이트에 저장하지 않고 구글로만 넘어가요.',
+        'When Google Calendar opens, check the details and select Save. If it asks about sending invitations, choose Send. You can add more guests there too. Emails you enter aren’t saved on this site; they go straight to Google.')));
+    return S.finBox;
+  }
+  function drawFinal(yes, n) {
+    if (!S.fin) return;
+    const F = S.fin, ev = S.ev, list = F.list, runs = bestBlocks(yes), fk = list.contains(document.activeElement) ? document.activeElement.dataset.k : null;
+    list.textContent = '';
+    if (!runs.length) list.append(h('p', { class: 'note' }, L('아직 칠한 사람이 없어서 추천할 시간이 없어요. 아래에 직접 적어도 돼요.', 'No one has marked times yet, so there’s nothing to suggest. You can enter a time below.')));
+    runs.forEach(r => {
+      const a = partsAt(finTz(), ev.slots[r.a] * 60000), b = partsAt(finTz(), (ev.slots[r.b] + ev.step) * 60000), k = r.a + ':' + r.b;
+      const twice = ms => { const p = partsAt(finTz(), ms); return [1800000, 3600000].some(d => { const q = partsAt(finTz(), ms - d); return q.date === p.date && q.min === p.min; }) ? L(' (두 번째)', ' (2nd)') : ''; };
+      const miss = n - r.yes.length, names = people().map(p => p.name).filter(x => !r.yes.includes(x));
+      list.append(h('button', { type: 'button', class: 'cand', 'data-k': k, 'aria-pressed': S.finKey === k ? 'true' : 'false', onclick: () => finPick(r) },
+        h('b', null, dateLabel(ev, a) + ' ' + fmtMin(a.min) + twice(ev.slots[r.a] * 60000) + L(' ~ ', ' – ') + fmtMin(b.date === a.date ? b.min : (b.min || 1440))),
+        h('span', { class: miss ? '' : 'all' }, miss ? L(n + '명 중 ' + r.yes.length + '명 · 못 오는 사람 ' + names.join(', '), r.yes.length + ' of ' + n + ' · Can’t make it: ' + names.join(', ')) : L(n + '명 모두 돼요', 'All ' + n + ' free'))));
+    });
+    if (fk) { const x = list.querySelector('.cand[data-k="' + fk + '"]'); if (x) x.focus(); }
+    if (!S.finInit) { S.finInit = true; if (runs.length) finPick(runs[0]); else finUpdate(); }
   }
 
   // =====================================================================

@@ -16,12 +16,13 @@ A no-signup, no-password scheduling poll ("when can everyone meet?") in Korean a
 - **시차·서머타임**: 칸은 UTC로 저장하고 보는 사람 기기의 시간대로 그림. 서머타임 시작(없는 시각)·끝(두 번 오는 시각)을 날짜마다 따로 계산
 - **내 달력과 비교**: 구글·애플·아웃룩에서 내보낸 `.ics`(구글은 `.zip`)를 고르면 일정이 있는 칸에 빗금. 파일은 **브라우저 안에서만** 읽고 서버로 보내지 않음
 - **말로 알려 주기 (AI, 선택)**: "월요일은 종일 외래, 오후 8시 이후는 안 돼요"처럼 적거나 일정표 사진을 넣으면 AI가 안 되는 시간을 표에서 빼 줌. AI는 틀릴 수 있어 **사람이 목록을 확인해야** 칠할 수 있고, 칠한 뒤에도 확인 안내가 남음
+- **시간 정하고 초대 보내기**: 모임을 만든 브라우저에는 많이 되는 시간 후보가 뜨고, 고른 시간·모임 이름·받는 사람 이메일로 구글 캘린더 '일정 만들기' 화면을 엶. 만든 사람이 자기 구글 계정으로 저장하면 구글이 초대를 보냄. 정한 시간·이메일은 이 서버로 보내지 않음
 - **한국어/영어**: 접속 국가(Cloudflare `CF-IPCountry`, KR → 한국어)나 브라우저 언어로 고르고, 화면 위에서 바꿀 수 있음
 - **밝게/어둡게** 화면
 
 ## Features (English)
 
-Create a poll (dates or weekly days, time range, time zone) → share the link → people add a name and paint the times that work. Time zones and daylight-saving changes are handled per date. Optional: compare with your own calendar (`.ics` read only in the browser), or describe your busy times in words or a photo and let an AI mark them (you must review before applying). Korean and English UI.
+Create a poll (dates or weekly days, time range, time zone) → share the link → people add a name and paint the times that work. Time zones and daylight-saving changes are handled per date. Optional: compare with your own calendar (`.ics` read only in the browser), or describe your busy times in words or a photo and let an AI mark them (you must review before applying). The poll creator gets suggested best times and a one-click link that opens Google Calendar's event editor (title, time, guests) so invites go out from their own Google account; nothing is sent to this server. Korean and English UI.
 
 ## 실행
 

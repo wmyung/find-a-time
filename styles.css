@@ -310,3 +310,28 @@ button.primary:disabled{background:var(--sub);color:var(--faint)}
   .ready button{width:100%}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* 시간 정하고 초대 보내기 (만든 사람만) */
+.final{width:100%;max-width:640px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:28px}
+.finhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.final .opt{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:2px 6px}
+.cands{display:flex;flex-direction:column;gap:8px}
+.cand{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;min-height:56px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px;font-weight:500}
+.cand b{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+.cand span{font-size:13px;line-height:19px;color:var(--muted)}
+.cand span.all{color:var(--accent);font-weight:600}
+.cand:hover:not(:disabled){filter:none;border-color:var(--grid)}
+.cand[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;background:var(--accent-soft)}
+.cand:focus-visible,.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.finform{grid-template-columns:72px minmax(0,220px)}
+.finform input:not([type=checkbox]){width:100%}
+.finform .aiok{justify-self:start;font-weight:600;color:var(--text)}
+.finform .aiok{grid-column:2}
+.finlab{font-size:15px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:6px}
+.final .guests{min-height:56px}
+.finwhen{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;min-height:22px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 20px;border-radius:10px;font-weight:700;text-decoration:none;align-self:flex-start;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-text)}
+.btn.primary:hover{background:var(--accent-hover)}
+.btn[aria-disabled="true"]{background:var(--sub);color:var(--faint);cursor:default}
+@media (max-width:480px){.btn{align-self:stretch}.finform{grid-template-columns:56px minmax(0,1fr)}}
